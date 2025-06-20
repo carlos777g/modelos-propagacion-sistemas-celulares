@@ -1,35 +1,62 @@
 import json
+import matplotlib.pyplot as plt
+import math
 from archivos_python.determiarLOS import determinar_los
 from archivos_python.walfish_ikegami import loss_los, loss_nlos
+from archivos_python.logNormal import model_lognormal
 
-FREQ_MHZ = 1935  # puedes ajustar
+# Parámetros globales
+FREQ_MHZ = 1935
+Pt_dBm = 10 * math.log10(10) + 30  # 10 W
+Gt_dB = 9
+Gr_dB = 3
+alpha = 2.8
+sigma = 7
+
 
 def main():
-    with open("datos.json") as f:
+    # Cargar datos
+    with open('datos.json', 'r') as f:
         data = json.load(f)
 
-    h_bs = data["base_station_height"]
-    h_mvs = data["mobile_height"]
-    h_prom_buildings = data["h_prom_buildings"]
+    h_bs = data['base_station_height']
+    h_mvs = data['mobile_height']
+    h_prom = data['h_prom_buildings']
 
-    los_resultados = determinar_los("datos.json")
+    # Obtener LoS/NLoS
+    los_list = determinar_los('datos.json')
 
-    print("Resultados del modelo COST-231 Walfish-Ikegami:")
-    print("-" * 80)
-
-    for i, movil in enumerate(data["mobiles"]):
-        real_distance = movil["real_distance"]
-        phi = movil["angle_deg"]
-        los = los_resultados[i]["los"]
-        street_weight = movil["street_weight"]
-        if los:
-            loss = loss_los(real_distance, FREQ_MHZ)
-            tipo = "LoS"
+    # Modelos
+    wi_results = []
+    for i, m in enumerate(data['mobiles']):
+        d = m['real_distance']
+        phi = m['angle_deg']
+        w = m['street_weight']
+        b = data['prom_distance_buildings']
+        if los_list[i]['los']:
+            Lb = loss_los(d, FREQ_MHZ)
         else:
-            loss = loss_nlos(real_distance, FREQ_MHZ, h_bs, h_mvs, h_prom_buildings, phi, street_weight, h_prom_buildings)
-            tipo = "NLoS"
+            Lb = loss_nlos(d, FREQ_MHZ, h_bs, h_mvs, h_prom, phi, w, b)
+        Prx = Pt_dBm + Gt_dB + Gr_dB - Lb
+        wi_results.append({'distance': d, 'Prx': Prx})
 
-        print(f"{tipo:4} | Distancia = {real_distance:7.2f} m | Ángulo = {phi:5.1f}° | Lb = {loss:7.2f} dB")
+    # Lognormal
+    ln_results = model_lognormal(data['mobiles'], Pt_dBm, Gt_dB, Gr_dB, alpha, sigma)
 
-if __name__ == "__main__":
+    # Graficar
+    distances = [r['distance'] for r in wi_results]
+    Pr_wi = [r['Prx'] for r in wi_results]
+    Pr_ln = [r['Pr_log'] for r in ln_results]
+
+    plt.figure()
+    plt.plot(distances, Pr_wi, 'o-', label='Walfish-Ikegami')  # sin especificar color
+    plt.plot(distances, Pr_ln, 's--', label='Lognormal')
+    plt.xlabel('Distancia (m)')
+    plt.ylabel('Potencia recibida (dBm)')
+    plt.legend()
+    plt.grid()
+    plt.tight_layout()
+    plt.show()
+
+if __name__ == '__main__':
     main()
