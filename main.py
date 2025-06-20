@@ -25,9 +25,10 @@ def main():
 
     # Obtener LoS/NLoS
     los_list = determinar_los('datos.json')
-
+    # print(los_list)
     # Modelos
     wi_results = []
+    print("-"*17 + "Modelo Walfish-Ikegami"+ "-"*17)
     for i, m in enumerate(data['mobiles']):
         d = m['real_distance']
         phi = m['angle_deg']
@@ -38,6 +39,13 @@ def main():
         else:
             Lb = loss_nlos(d, FREQ_MHZ, h_bs, h_mvs, h_prom, phi, w, b)
         Prx = Pt_dBm + Gt_dB + Gr_dB - Lb
+
+        if(los_list[i]["los"]):
+            print(f"Hay LOS; Perdidas: {Lb},  Prx: {Prx}")
+        else: 
+            print(f"No hay LOS; Perdidas: {Lb},  Prx: {Prx}")
+        
+        
         wi_results.append({'distance': d, 'Prx': Prx})
 
     # Lognormal
