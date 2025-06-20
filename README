@@ -1,0 +1,5 @@
+Proyecto para simular la potencia recibida en un móvil a diferentes distancias de una estación base, usando diferentes modelos de propagación de ondas, como el modelo "COST231 Walfish-Ikegami", modelo "lognormal", modelo de espacio libre y modelo de superficie reflejante
+Para sacar los distintos parámetros, usamos Google Earth (https://earth.google.com/)
+
+
+La rama lognormal para trabajar la creación del modelo lognormal
