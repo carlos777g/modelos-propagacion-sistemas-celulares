@@ -8,7 +8,7 @@ with open("datos.json", 'r') as f:
     data = json.load(f)
 
 # Extraer distancias desde datos.json
-dist_m = np.array([movil["distance"] for movil in data["mobiles"]])
+dist_m = np.array([movil["real_distance"] for movil in data["mobiles"]])
 dist_km = dist_m / 1000
 n = len(dist_m)
 
