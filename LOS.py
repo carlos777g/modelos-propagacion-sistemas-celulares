@@ -33,6 +33,7 @@ def analizar_los_desde_json(ruta_archivo):
 
     return resultados
 
+
 if __name__ == "__main__":
     resultados = analizar_los_desde_json("datos.json")
     for r in resultados:
