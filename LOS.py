@@ -15,6 +15,9 @@ def check_los(h_bs, h_mvs, buildings, d_rx):
     return True  # No hay obstrucción
 
 def analizar_los_desde_json(ruta_archivo):
+    """
+    Retorna booleano para decir si hay LOS o no.
+    """
     with open(ruta_archivo, 'r') as f:
         data = json.load(f)
 
@@ -25,7 +28,7 @@ def analizar_los_desde_json(ruta_archivo):
 
     for movil in data["mobiles"]:
         d_rx = movil["distance"]
-        los = check_los(h_bs, h_mvs, d_rx, buildings, d_rx)
+        los = check_los(h_bs, h_mvs, buildings, d_rx)
         resultados.append({
             "distance": d_rx,
             "los": los
