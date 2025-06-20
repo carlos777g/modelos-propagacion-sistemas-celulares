@@ -1,0 +1,43 @@
+{
+  "base_station_height": 24.5,
+  "mobile_height": 1.5,
+  "total_distance": 710.49,
+  "buildings": [
+    { "x": 11.05, "height": 6 },
+    { "x": 110.08, "height": 6 },
+    { "x": 127.8, "height": 12 },
+    { "x": 231.01, "height": 6 },
+    { "x": 455.56, "height": 6},
+    { "x": 434.86, "height": 6},
+    { "x": 570.86, "height": 9},
+    { "x": 625.07, "height": 3},
+    { "x": 643.89, "height": 9},
+    { "x": 660.16, "height": 7},
+    { "x": 682.46, "height": 8},
+    { "x": 693.19, "height": 9},
+    { "x": 707.05, "height": 8}
+  ],
+  "mobiles": [
+    { "distance": 20.97 },
+    { "distance": 41.47 },
+    { "distance":  60.45},
+    { "distance":  80.78},
+    { "distance":  233.56},
+    { "distance":  254.23},
+    { "distance":  274.46},
+    { "distance":  294.99},
+    { "distance":  315.37},
+    { "distance":  333.25},
+    { "distance":  354.73},
+    { "distance":  375.38},
+    { "distance":  394.93},
+    { "distance":  414.2},
+    { "distance":  434.7},
+    { "distance":  459.15},
+    { "distance":  575.52},
+    { "distance":  596.2},
+    { "distance":  646.53},
+    { "distance":  666.03},
+    { "distance":  710.49}
+  ]
+}
