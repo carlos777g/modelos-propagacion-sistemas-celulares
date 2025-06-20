@@ -5,7 +5,7 @@ from rich import print
 from rich.table import Table
 from archivos_python.determiarLOS import determinar_los
 from archivos_python.walfish_ikegami import loss_los, loss_nlos
-from archivos_python.logNormal import model_lognormal
+from archivos_python.logNormal import model_lognormal, generar_tabla_lognormal
 
 # Parámetros globales
 FREQ_MHZ = 1935
@@ -30,11 +30,11 @@ def main():
     # print(los_list)
     # Modelos
     wi_results = []
-    print("[bold magenta]d[/bold magenta]")
-    table = Table(title="[bold magenta]Resultados Modelo Walfish-Ikegami[bold magenta]")
-    table.add_column("LOS", justify="right")
-    table.add_column("Pérdidas [Lb]", justify="right")
-    table.add_column("Potencia recibida [dBm]", justify="right")
+    table_walfish = Table(title="[bold magenta]Resultados Modelo Walfish-Ikegami[bold magenta]")
+    table_walfish.add_column("Puntos", justify="center")
+    table_walfish.add_column("LOS", justify="center")
+    table_walfish.add_column("Pérdidas [Lb]", justify="center")
+    table_walfish.add_column("Potencia recibida [dBm]", justify="center")
 
     print()
     for i, m in enumerate(data['mobiles']):
@@ -49,17 +49,18 @@ def main():
         Prx = Pt_dBm + Gt_dB + Gr_dB - Lb
 
         if(los_list[i]["los"]):
-            table.add_row("Sí", str(Lb), str(Prx))
+            table_walfish.add_row(f"{i+1}", "Sí", str(Lb), str(Prx))
         else: 
-            table.add_row("No", str(Lb), str(Prx))
+            table_walfish.add_row(f"{i+1}", "No", str(Lb), str(Prx))
         
         wi_results.append({'distance': d, 'Prx': Prx})
 
-    print(table)
-
     # Lognormal
     ln_results = model_lognormal(data['mobiles'], Pt_dBm, Gt_dB, Gr_dB, alpha, sigma)
-
+    table_lognormal = generar_tabla_lognormal(ln_results)
+    # Imprimiendo las tablas en consola
+    print(table_walfish)
+    print(table_lognormal)
     # Graficar
     distances = [r['distance'] for r in wi_results]
     Pr_wi = [r['Prx'] for r in wi_results]
