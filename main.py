@@ -1,6 +1,8 @@
 import json
 import matplotlib.pyplot as plt
 import math
+from rich import print
+from rich.table import Table
 from archivos_python.determiarLOS import determinar_los
 from archivos_python.walfish_ikegami import loss_los, loss_nlos
 from archivos_python.logNormal import model_lognormal
@@ -28,7 +30,13 @@ def main():
     # print(los_list)
     # Modelos
     wi_results = []
-    print("-"*17 + "Modelo Walfish-Ikegami"+ "-"*17)
+    print("[bold magenta]d[/bold magenta]")
+    table = Table(title="[bold magenta]Resultados Modelo Walfish-Ikegami[bold magenta]")
+    table.add_column("LOS", justify="right")
+    table.add_column("Pérdidas [Lb]", justify="right")
+    table.add_column("Potencia recibida [dBm]", justify="right")
+
+    print()
     for i, m in enumerate(data['mobiles']):
         d = m['real_distance']
         phi = m['angle_deg']
@@ -41,12 +49,13 @@ def main():
         Prx = Pt_dBm + Gt_dB + Gr_dB - Lb
 
         if(los_list[i]["los"]):
-            print(f"Hay LOS; Perdidas: {Lb},  Prx: {Prx}")
+            table.add_row("Sí", str(Lb), str(Prx))
         else: 
-            print(f"No hay LOS; Perdidas: {Lb},  Prx: {Prx}")
-        
+            table.add_row("No", str(Lb), str(Prx))
         
         wi_results.append({'distance': d, 'Prx': Prx})
+
+    print(table)
 
     # Lognormal
     ln_results = model_lognormal(data['mobiles'], Pt_dBm, Gt_dB, Gr_dB, alpha, sigma)
