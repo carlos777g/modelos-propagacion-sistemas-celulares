@@ -86,7 +86,7 @@ for i in range(n):
     Pr_EL[i] = Pt_dBm + Gt + Gr - Lfs
 
     # Superficie reflejante
-1    LSR = 40 * np.log10(d_m) - 20 * np.log10(ht * hr)
+    LSR = 40 * np.log10(d_m) - 20 * np.log10(ht * hr)
     Pr_SR[i] = Pt_dBm + Gt + Gr - LSR
 
     # COST231
