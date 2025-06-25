@@ -40,7 +40,8 @@ def main():
     table_walfish.add_column("Potencia recibida [dBm]", justify="center")
 
     for i, m in enumerate(data['mobiles']):
-        d = m['real_distance']
+        d_metros = m['real_distance']
+        d = d_metros / 1000
         phi = m['angle_deg']
         w = m['street_weight']
         b = data['prom_distance_buildings']
@@ -81,10 +82,10 @@ def main():
     Pr_reflejante = [r['Prx_two_ray'] for r in resultados_modelo_reflejante]
 
     plt.figure()
-    plt.plot(distances, Pr_wi, 'o-', label='Walfish-Ikegami')  # sin especificar color
     plt.plot(distances, Pr_ln, 's--', label='Lognormal')
-    plt.plot(distances, Pr_free_space, 's-', label='Espacio libre')
     plt.plot(distances, Pr_reflejante, 'o--', label='Modelo reflejante')
+    plt.plot(distances, Pr_free_space, 's-', label='Espacio libre')
+    plt.plot(distances, Pr_wi, 'o-', label='Walfish-Ikegami')  # sin especificar color
     plt.xlabel('Distancia (m)')
     plt.ylabel('Potencia recibida (dBm)')
     plt.legend()

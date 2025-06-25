@@ -26,9 +26,9 @@ def model_two_ray(mobiles, h_bs, h_m, freq_mhz, Pt_dBm, Gt_dB, Gr_dB):
     Retorna lista de dicts y tabla Rich.
     """
     resultados = []
-    table = Table(title="[bold cyan]Resultados Modelo Two-Ray[/bold cyan]")
+    table = Table(title="[bold cyan]Resultados Superficie reflejante[/bold cyan]")
     table.add_column("Punto", justify="center")
-    table.add_column("Prx Two-Ray [dBm]", justify="center")
+    table.add_column("Prx [dBm]", justify="center")
 
     for i, m in enumerate(mobiles):
         d = m['real_distance']
