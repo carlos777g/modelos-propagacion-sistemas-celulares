@@ -1,0 +1,384 @@
+\section{\Large Anexos}
+\subsection{Códigos utilizados}
+
+\begin{lstlisting}[language=Python, caption={main.py}]
+import json
+import matplotlib.pyplot as plt
+import math
+from rich import print
+from rich.table import Table
+from archivos_python.determiarLOS import determinar_los
+from archivos_python.walfish_ikegami import loss_los, loss_nlos
+from archivos_python.logNormal import model_lognormal, generar_tabla_lognormal
+from archivos_python.espacio_libre import model_free_space
+from archivos_python.superficie_reflejante import model_two_ray
+
+
+# Parámetros globales
+FREQ_MHZ = 1935
+Pt_dBm = 10 * math.log10(10) + 30  # 10 W
+Gt_dB = 9
+Gr_dB = 3
+alpha = 2.8
+sigma = 7
+
+
+def main():
+    # Cargar datos
+    with open('datos.json', 'r') as f:
+        data = json.load(f)
+
+    h_bs = data['base_station_height']
+    h_mvs = data['mobile_height']
+    h_prom = data['h_prom_buildings']
+
+    # Obtener LoS/NLoS
+    los_list = determinar_los('datos.json')
+    # print(los_list)
+    # Modelos
+    wi_results = []
+    table_walfish = Table(title="[bold magenta]Resultados Modelo Walfish-Ikegami[bold magenta]")
+    table_walfish.add_column("Puntos", justify="center")
+    table_walfish.add_column("LOS", justify="center")
+    table_walfish.add_column("ángulo", justify="center")
+    table_walfish.add_column("Pérdidas [L0]", justify="center")
+    table_walfish.add_column("L_rts", justify="center")
+    table_walfish.add_column("L_msd", justify="center")
+    table_walfish.add_column("Potencia recibida (dBm)", justify="center")
+
+    for i, m in enumerate(data['mobiles']):
+        d_metros = m['real_distance']
+        d = d_metros / 1000
+        phi = m['angle_deg']
+        w = m['street_weight']
+        b = data['prom_distance_buildings']
+        angulo = m['angle_deg']
+        if los_list[i]['los']:
+            Lb = loss_los(d, FREQ_MHZ)
+        else:
+            Lb, L_rts, L_msd = loss_nlos(d, FREQ_MHZ, h_bs, h_mvs, h_prom, phi, w, b)
+        Prx = Pt_dBm + Gt_dB + Gr_dB - Lb
+
+        if(los_list[i]["los"]):
+            table_walfish.add_row(f"{i+1}", "Sí", str(angulo), str(Lb), "No hay", "No hay", str(Prx))
+        else: 
+            table_walfish.add_row(f"{i+1}", "No", str(angulo),str(Lb), str(L_rts), str(L_msd), str(Prx))
+        
+        wi_results.append({'distance': d, 'Prx': Prx})
+
+    # Lognormal
+    ln_results = model_lognormal(data['mobiles'], Pt_dBm, Gt_dB, Gr_dB, alpha, sigma)
+    table_lognormal = generar_tabla_lognormal(ln_results)
+
+    # Espacio libre
+    mobiles = data['mobiles']
+    resultados_free_space, table_free_space = model_free_space(mobiles, FREQ_MHZ, Pt_dBm, Gt_dB, Gr_dB)
+    # Modelo reflejante
+    h_m = data['mobile_height']
+    resultados_modelo_reflejante, table_reflejante = model_two_ray(mobiles, h_bs, h_m, FREQ_MHZ, Pt_dBm, Gt_dB, Gr_dB)
+
+    # Imprimiendo las tablas en consola
+    print(table_walfish)
+    print(table_lognormal)
+    print(table_free_space)
+    print(table_reflejante)
+    # Graficar
+    distances = [r['distance'] for r in wi_results]
+    Pr_wi = [r['Prx'] for r in wi_results]
+    Pr_ln = [r['Pr_log'] for r in ln_results]
+    Pr_free_space = [r['Prx_fspl'] for r in resultados_free_space]
+    Pr_reflejante = [r['Prx_two_ray'] for r in resultados_modelo_reflejante]
+
+    plt.figure()
+    plt.plot(distances, Pr_ln, 's--', label='Lognormal')
+    plt.plot(distances, Pr_reflejante, 'o--', label='Modelo reflejante')
+    plt.plot(distances, Pr_free_space, 's-', label='Espacio libre')
+    plt.plot(distances, Pr_wi, 'o-', label='Walfish-Ikegami')  # sin especificar color
+    plt.xlabel('Distancia (m)')
+    plt.ylabel('Potencia recibida (dBm)')
+    plt.legend()
+    plt.grid()
+    plt.tight_layout()
+    plt.show()
+
+if __name__ == '__main__':
+    main()
+\end{lstlisting}
+\clearpage
+\begin{lstlisting}[language=Python, caption={walfish\_ikegami.py}]
+import math
+
+def loss_los(d, f):
+    return 42.6 + 26 * math.log10(d) + 20 * math.log10(f)
+
+import math
+
+
+def lori(phi: float) -> float:
+    """
+    Pérdida por orientación de calle (L_ori) según COST-231 Walfish-Ikegami.
+    phi: ángulo entre dirección de propagación y orientación de la calle (0°-90°)
+    """
+    if phi < 0 or phi > 90:
+        raise ValueError("phi debe estar entre 0 y 90 grados")
+    if phi < 35:
+        return -10 + 0.354 * phi
+    elif phi < 55:
+        return 2.5 + 0.075 * (phi - 35)
+    else:
+        return 4.0 - 0.114 * (phi - 55)
+
+
+def loss_nlos(d: float, f: float, h_bs: float, h_m: float, h_prom: float, phi: float, w: float, b: float) -> float:
+    """
+    Calcula las pérdidas Lb (dB) en condiciones NLoS según COST-231 Walfish-Ikegami.
+
+    Parámetros:
+    - d       : distancia real BS móvil (m)
+    - f       : frecuencia (MHz)
+    - h_bs    : altura de la estación base (m)
+    - h_m     : altura del móvil (m)
+    - h_prom  : altura promedio de edificios (m)
+    - phi     : ángulo de orientación de calle (°)
+    - w       : ancho de la calle (m)
+    - b       : separación promedio entre edificios (m)
+
+    Retorna:
+    - Lb: pérdidas totales (dB)
+    """
+    # 1. Pérdida de espacio libre (L_o)
+    L_o = 32.44 + 20 * math.log10(f) + 20 * math.log10(d)
+
+    # 2. Pérdida por tejados y orientación (L_rts)
+    #    w: ancho de calle
+    if w <= 0:
+        raise ValueError("Ancho de calle w debe ser > 0")
+    delta_h = h_bs - h_prom
+    term_hw = 20 * math.log10(delta_h if delta_h > 0 else 0.1)
+    L_rts = (
+        -16.9
+        - 10 * math.log10(w)
+        + 10 * math.log10(f)
+        + term_hw
+        + lori(phi)
+    )
+
+    # 3. Pérdida por múltiples pantallas (L_msd)
+    # 3.1: L_bsh
+    if h_bs > h_prom:
+        L_bsh = -18 * math.log10(1 + (h_bs - h_prom))
+    else:
+        L_bsh = 0
+
+    # 3.2: k_a
+    if h_bs > h_prom:
+        k_a = 54
+    else:
+        diff = h_bs - h_prom
+        if d >= 500:
+            k_a = 54 - 0.8 * diff
+        else:
+            k_a = 54 - 0.8 * diff * (d / 0.5)
+
+    # 3.3: k_d
+    if h_bs > h_prom:
+        k_d = 18
+    else:
+        k_d = 18 - 15 * ((h_bs - h_prom) / h_prom)
+
+    # 3.4: k_f
+    k_f = -4 + 1.5 * ((f / 925) - 1)
+
+    # 3.5: L_msd
+    if b <= 0:
+        raise ValueError("Separación entre edificios b debe ser > 0")
+    L_msd = (
+        L_bsh
+        + k_a
+        + k_d * math.log10(d)
+        + k_f * math.log10(f)
+        - 9 * math.log10(b)
+    )
+
+    # 4. Cálculo final Lb
+    if (L_rts + L_msd) > 0:
+        return L_o + L_rts + L_msd, L_rts, L_msd
+    else:
+        return L_o
+
+\end{lstlisting}
+\clearpage
+\begin{lstlisting}[language=Python, caption={determinar\_LOS.py}]
+import json
+
+def check_los(h_bs, h_mvs, buildings, d_rx):
+    """
+    Verifica si hay línea de vista desde la BS al punto a d_rx metros.
+    """
+    m = (h_mvs - h_bs) / d_rx
+
+    for b in buildings:
+        x = b["x"]
+        if x < d_rx:  # sólo evaluamos edificios entre BS y móvil
+            h_line = h_bs + m * x
+            if b["height"] > h_line:
+                return False  # Obstrucción
+    return True  # No hay obstrucción
+
+def determinar_los(ruta_archivo):
+    """
+    Retorna booleano para decir si hay LOS o no.
+    """
+    with open(ruta_archivo, 'r') as f:
+        data = json.load(f)
+
+    h_bs = data["base_station_height"]
+    h_mvs = data["mobile_height"]
+    buildings = data["buildings"]
+    resultados = []
+
+    for movil in data["mobiles"]:
+        d_rx = movil["distance_x"]
+        los = check_los(h_bs, h_mvs, buildings, d_rx)
+        resultados.append({
+            "los": los
+        })
+
+    return resultados
+
+# print(analizar_los_desde_json("datos.json"))
+\end{lstlisting}
+\clearpage
+\begin{lstlisting}[language=Python, caption={espacio\_libre.py}]
+import math
+from rich.table import Table
+
+def loss_free_space(d, freq_mhz):
+    """
+    Free-Space Path Loss (FSPL) en dB:
+    FSPL = 32.44 + 20*log10(d\_km) + 20*log10(freq\_mhz)
+    """
+    d_km = d / 1000.0
+    return 32.44 + 20 * math.log10(d_km) + 20 * math.log10(freq_mhz)
+
+
+def model_free_space(mobiles, freq_mhz, Pt_dBm, Gt_dB, Gr_dB):
+    """
+    Calcula pérdidas FSPL y potencia recibida para cada móvil.
+    Retorna lista de dicts y tabla Rich.
+    """
+    resultados = []
+    table = Table(title="[bold cyan]Resultados Modelo Espacio Libre[/bold cyan]")
+    table.add_column("Punto", justify="center")
+    table.add_column("Pérdida FSPL [dB]", justify="center")
+    table.add_column("Prx FSPL [dBm]", justify="center")
+
+    for i, m in enumerate(mobiles):
+        d = m['real_distance']
+        Lfs = loss_free_space(d, freq_mhz)
+        Prx = Pt_dBm + Gt_dB + Gr_dB - Lfs
+        resultados.append({'distance': d, 'loss_fspl': Lfs, 'Prx_fspl': Prx})
+        table.add_row(f"{i+1}", f"{Lfs:.2f}", f"{Prx:.2f}")
+
+    return resultados, table
+
+\end{lstlisting}
+\clearpage
+\begin{lstlisting}[language=Python, caption={log\_normal.py}]
+import numpy as np
+
+def model_lognormal(mobiles, Pt_dBm, Gt_dB, Gr_dB, alpha, sigma):
+    """
+    Calcula pérdidas y potencia recibida según el modelo lognormal.
+    """
+    dist_m = np.array([m["real_distance"] for m in mobiles])
+    dist_km = dist_m / 1000
+    n = len(dist_m)
+
+    Ld_log = 10 * alpha * np.log10(dist_km)
+    Xsigma = np.random.randn(n) * sigma
+    Pr = Pt_dBm + Gt_dB + Gr_dB - Ld_log - Xsigma
+
+    # Devolver lista de dicts
+    return [
+        {
+            "distance": dist_m[i],
+            "loss_d": Ld_log[i],
+            "shadowing": Xsigma[i],
+            "Pr_log": Pr[i]
+        }
+        for i in range(n)
+    ]
+
+from rich.table import Table
+
+def generar_tabla_lognormal(resultados):
+    table = Table(title="[bold magenta]Resultados Modelo Lognormal[/bold magenta]")
+
+    table.add_column("Puntos", justify="center")
+    table.add_column("Distancia (m)", justify="center")
+    table.add_column("Pérdida [dB]", justify="center")
+    table.add_column("Ensombrecimiento [dB]", justify="center")
+    table.add_column("Potencia recibida [dBm]", justify="center")
+
+    for index, r in enumerate(resultados):
+        table.add_row(
+            f"{index+1}",
+            f"{r['distance']:.2f}",
+            f"{r['loss_d']:.2f}",
+            f"{r['shadowing']:.2f}",
+            f"{r['Pr_log']:.2f}"
+        )
+
+    return table
+
+# table = Table(title="[bold magenta]Resultados Modelo lognormal[bold magenta]")
+# table.add_column("Distancia", justify="center")
+# table.add_column("Pérdida [dB]", justify="center")
+# table.add_column("Ensombrecimiento [dB]", justify="center")
+# table.add_column("Potencia recibida [dBm]", justify="center")
+\end{lstlisting}
+\clearpage
+\begin{lstlisting}[language=Python, caption={superficie\_reflejante.py}]
+import math
+from rich.table import Table
+
+# velocidad de la luz en m/s
+c = 3e8
+
+def pr_two_ray(d, h_bs, h_m, freq_mhz, Pt_dBm, Gt_dB, Gr_dB):
+    """
+    Modelo Two-Ray Ground Reflection.
+    Calcula Pr en dBm usando la fórmula:
+    Pr_lin = Pt_lin * Gt_lin * Gr_lin * (h_bs * h_m / (d**2 * lambda_))**2
+    """
+    # convertir a sistema lineal
+    Pt_lin = 10**((Pt_dBm - 30) / 10)
+    Gt_lin = 10**(Gt_dB / 10)
+    Gr_lin = 10**(Gr_dB / 10)
+    lam = c / (freq_mhz * 1e6)
+
+    Pr_lin = Pt_lin * Gt_lin * Gr_lin * (h_bs * h_m / (d**2 * lam))**2
+    return 10 * math.log10(Pr_lin) + 30
+
+
+def model_two_ray(mobiles, h_bs, h_m, freq_mhz, Pt_dBm, Gt_dB, Gr_dB):
+    """
+    Aplica el modelo Two-Ray a cada móvil.
+    Retorna lista de dicts y tabla Rich.
+    """
+    resultados = []
+    table = Table(title="[bold cyan]Resultados Superficie reflejante[/bold cyan]")
+    table.add_column("Punto", justify="center")
+    table.add_column("Prx [dBm]", justify="center")
+
+    for i, m in enumerate(mobiles):
+        d = m['real_distance']
+        Prx = pr_two_ray(d, h_bs, h_m, freq_mhz, Pt_dBm, Gt_dB, Gr_dB)
+        resultados.append({'distance': d, 'Prx_two_ray': Prx})
+        table.add_row(f"{i+1}", f"{Prx:.2f}")
+
+    return resultados, table
+\end{lstlisting}
+
+Y datos.json:
