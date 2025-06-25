@@ -94,6 +94,6 @@ def loss_nlos(d: float, f: float, h_bs: float, h_m: float, h_prom: float, phi: f
 
     # 4. Cálculo final Lb
     if (L_rts + L_msd) > 0:
-        return L_o + L_rts + L_msd
+        return L_o + L_rts + L_msd, L_rts, L_msd
     else:
         return L_o

@@ -36,8 +36,11 @@ def main():
     table_walfish = Table(title="[bold magenta]Resultados Modelo Walfish-Ikegami[bold magenta]")
     table_walfish.add_column("Puntos", justify="center")
     table_walfish.add_column("LOS", justify="center")
-    table_walfish.add_column("Pérdidas [Lb]", justify="center")
-    table_walfish.add_column("Potencia recibida [dBm]", justify="center")
+    table_walfish.add_column("ángulo", justify="center")
+    table_walfish.add_column("Pérdidas [L0]", justify="center")
+    table_walfish.add_column("L_rts", justify="center")
+    table_walfish.add_column("L_msd", justify="center")
+    table_walfish.add_column("Potencia recibida (dBm)", justify="center")
 
     for i, m in enumerate(data['mobiles']):
         d_metros = m['real_distance']
@@ -45,16 +48,17 @@ def main():
         phi = m['angle_deg']
         w = m['street_weight']
         b = data['prom_distance_buildings']
+        angulo = m['angle_deg']
         if los_list[i]['los']:
             Lb = loss_los(d, FREQ_MHZ)
         else:
-            Lb = loss_nlos(d, FREQ_MHZ, h_bs, h_mvs, h_prom, phi, w, b)
+            Lb, L_rts, L_msd = loss_nlos(d, FREQ_MHZ, h_bs, h_mvs, h_prom, phi, w, b)
         Prx = Pt_dBm + Gt_dB + Gr_dB - Lb
 
         if(los_list[i]["los"]):
-            table_walfish.add_row(f"{i+1}", "Sí", str(Lb), str(Prx))
+            table_walfish.add_row(f"{i+1}", "Sí", str(angulo), str(Lb), "No hay", "No hay", str(Prx))
         else: 
-            table_walfish.add_row(f"{i+1}", "No", str(Lb), str(Prx))
+            table_walfish.add_row(f"{i+1}", "No", str(angulo),str(Lb), str(L_rts), str(L_msd), str(Prx))
         
         wi_results.append({'distance': d, 'Prx': Prx})
 
